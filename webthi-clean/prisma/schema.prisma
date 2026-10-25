@@ -1,0 +1,219 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String     @id @default(cuid())
+  username     String     @unique
+  passwordHash String
+  fullName     String
+  role         String     @default("ADMIN") // ADMIN, SUPER_ADMIN, EXAMINER
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+model Candidate {
+  id              String   @id @default(cuid())
+  candidateCode   String   @unique
+  fullName        String
+  participantType String   // CTV, MEMBER, EXECUTIVE
+  unitName        String   // Chi đoàn / Ban chức năng
+  isEligible      Boolean  @default(true)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("candidates")
+}
+
+model Exam {
+  id                   String              @id @default(cuid())
+  title                String
+  slug                 String              @unique
+  description          String
+  targetAudience       String              @default("ALL") // ALL, CTV, MEMBER, EXECUTIVE
+  durationMinutes      Int                 @default(30)
+  totalQuestions       Int                 @default(20)
+  maxScore             Float               @default(100.0)
+  passingScore         Float               @default(50.0)
+  startTime            DateTime
+  endTime              DateTime
+  status               String              @default("ACTIVE") // DRAFT, ACTIVE, PAUSED, ENDED
+  oneAttemptPolicy     String              @default("CANDIDATE_AND_IP") // CANDIDATE_ONLY, CANDIDATE_AND_IP, IP_ONLY
+  allowReview          Boolean             @default(false)
+  isLeaderboardPublic  Boolean             @default(true)
+  hideLeaderboardNames Boolean             @default(false)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  questions            Question[]
+  submissions          Submission[]
+  attemptLocks         ExamAttemptLock[]
+
+  @@map("exams")
+}
+
+model Question {
+  id                 String    @id @default(cuid())
+  examId             String
+  exam               Exam      @relation(fields: [examId], references: [id], onDelete: Cascade)
+  content            String
+  questionType       String    // SINGLE_CHOICE, MULTIPLE_CHOICE, TRUE_FALSE, SHORT_ANSWER, ESSAY, SITUATION
+  optionsJson        String?   // JSON array of string options
+  correctAnswer      String?   // For internal grading only. Hidden from test-takers
+  explanation        String?   // Internal reference notes
+  score              Float     @default(1.0)
+  difficulty         String    @default("MEDIUM") // EASY, MEDIUM, HARD
+  category           String    @default("KIEN_THUC_DOAN") // KIEN_THUC_DOAN, KY_NANG_CLB, TINH_HUONG
+  rubricJson         String?   // JSON rubric for essays (criteria, weights, penalties)
+  multiChoiceScoring String    @default("PARTIAL_CREDIT") // ALL_OR_NOTHING, PARTIAL_CREDIT, PARTIAL_WITH_PENALTY
+  orderIndex         Int       @default(0)
+  answers            Answer[]
+
+  @@map("questions")
+}
+
+model ExamAttemptLock {
+  id            String    @id @default(cuid())
+  examId        String
+  exam          Exam      @relation(fields: [examId], references: [id], onDelete: Cascade)
+  candidateCode String?
+  ipFingerprint String?
+  lockType      String    // CANDIDATE, IP
+  status        String    @default("ACTIVE") // ACTIVE, RELEASED
+  releasedBy    String?
+  releaseReason String?
+  releasedAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([examId, candidateCode])
+  @@index([examId, ipFingerprint])
+  @@map("exam_attempt_locks")
+}
+
+model Submission {
+  id              String          @id @default(cuid())
+  examId          String
+  exam            Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
+  candidateCode   String
+  fullName        String
+  participantType String          // CTV, MEMBER, EXECUTIVE
+  unitName        String
+  ipFingerprint   String
+  userAgent       String?
+  startedAt       DateTime        @default(now())
+  submittedAt     DateTime?
+  durationSeconds Int             @default(0)
+  objectiveScore  Float           @default(0.0)
+  aiScore         Float           @default(0.0)
+  manualScore     Float?
+  finalScore      Float           @default(0.0)
+  maxScore        Float           @default(100.0)
+  gradingStatus   String          @default("PENDING") // PENDING, OBJECTIVE_GRADED, AI_GRADED, REVIEWED
+  reviewStatus    String          @default("AUTO") // AUTO, NEEDS_REVIEW, APPROVED
+  isExempted      Boolean         @default(false)
+  exemptedBy      String?
+  exemptedReason  String?
+  lookupCode      String          @unique // Code for candidate result verification
+  syncStatus      String          @default("PENDING") // PENDING, SYNCED, FAILED
+  syncError       String?
+  syncedAt        DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  answers         Answer[]
+  gradingResults  GradingResult[]
+  syncJobs        SyncJob[]
+
+  @@index([examId, candidateCode])
+  @@index([examId, ipFingerprint])
+  @@map("submissions")
+}
+
+model Answer {
+  id                  String      @id @default(cuid())
+  submissionId        String
+  submission          Submission  @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  questionId          String
+  question            Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  questionType        String
+  answerText          String?     // Text answer or short answer
+  selectedOptionsJson String?     // JSON array of selected options
+  isCorrect           Boolean?
+  score               Float       @default(0.0)
+  maxScore            Float       @default(1.0)
+  aiFeedbackJson      String?     // Feedback from AI or rubric evaluator
+  gradingStatus       String      @default("AUTO_GRADED") // AUTO_GRADED, PENDING_AI, AI_GRADED, MANUAL_GRADED
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  @@unique([submissionId, questionId])
+  @@map("answers")
+}
+
+model GradingResult {
+  id                 String     @id @default(cuid())
+  submissionId       String
+  submission         Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  questionId         String
+  aiModel            String     @default("gemini-1.5-flash")
+  promptVersion      String     @default("v1.0")
+  score              Float
+  maxScore           Float
+  criteriaScoresJson String?    // JSON of each criterion score
+  feedback           String?
+  strengths          String?
+  improvements       String?
+  reasoning          String?
+  rawResponse        String?
+  reviewedBy         String?
+  reviewedAt         DateTime?
+  createdAt          DateTime   @default(now())
+
+  @@map("grading_results")
+}
+
+model SyncJob {
+  id           String      @id @default(cuid())
+  submissionId String
+  submission   Submission  @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  examId       String
+  targetSheet  String      // KET_QUA_THI, CHI_TIET_CAU_TRA_LOI, ALL
+  status       String      @default("PENDING") // PENDING, IN_PROGRESS, SUCCESS, FAILED
+  attempts     Int         @default(0)
+  errorDetails String?
+  lastAttempt  DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@map("sync_jobs")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String   // UNLOCK_ATTEMPT, OVERRIDE_SCORE, CREATE_EXAM, UPDATE_SETTING, etc.
+  targetType String   // EXAM, SUBMISSION, QUESTION, SETTING, CANDIDATE
+  targetId   String?
+  detailsJson String?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  key       String   @id
+  value     String
+  category  String   @default("GENERAL") // GENERAL, GOOGLE_SHEETS, AI, SECURITY
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}

@@ -1,0 +1,68 @@
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-vietnam: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --color-primary: #087DBB;
+  --color-primary-dark: #075985;
+  --color-primary-light: #EAF8FF;
+  --color-navy: #17324D;
+  --color-gold: #F59E0B;
+}
+
+body {
+  font-family: var(--font-vietnam);
+  color: #17324D;
+  background-color: #F8FAFC;
+  min-height: 100vh;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Bronze Drum Stylized Geometric Accents */
+.pattern-bronze-drum {
+  background-color: #087DBB;
+  background-image: radial-gradient(circle at center, rgba(255, 255, 255, 0.12) 0, rgba(255, 255, 255, 0.12) 2px, transparent 2px),
+                    radial-gradient(circle at center, rgba(255, 255, 255, 0.08) 0, rgba(255, 255, 255, 0.08) 10px, transparent 10px);
+  background-size: 24px 24px, 48px 48px;
+}
+
+.subtle-grid {
+  background-size: 32px 32px;
+  background-image: linear-gradient(to right, rgba(8, 125, 187, 0.04) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(8, 125, 187, 0.04) 1px, transparent 1px);
+}
+
+/* Glassmorphism */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+/* Pulse animation for countdown under 5 minutes */
+@keyframes warningPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.02); }
+}
+
+.timer-warning {
+  animation: warningPulse 1.5s infinite ease-in-out;
+}
